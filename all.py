@@ -1,51 +1,10 @@
+import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
 
 # Set page configuration
 st.set_page_config(page_title="NEPSE Sector Analysis", layout="wide")
-
-# Custom CSS for styling
-st.markdown(
-    """
-    <style>
-    body {
-        background-color: #1f1f1f; /* Dark background for a modern look */
-        color: #f5f5f5; /* Light text color for contrast */
-        font-family: 'Arial', sans-serif;
-    }
-    .stButton>button {
-        background-color: #FF5733; /* Vibrant red-orange background for buttons */
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        text-align: center;
-        text-decoration: none;
-        display: inline-block;
-        font-size: 16px;
-        margin: 4px 2px;
-        cursor: pointer;
-        border-radius: 12px;
-        box-shadow: 0px 6px 8px #444;
-        transition: background-color 0.3s, transform 0.3s ease-in-out;
-    }
-    .stButton>button:hover {
-        background-color: #FF451B; /* Darker red-orange on hover */
-        transform: translateY(-4px); /* Lift button slightly on hover */
-    }
-    .stHeader {
-        background-color: #FF5733;
-        color: white;
-        padding: 10px;
-        text-align: center;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        box-shadow: 0px 6px 8px #444;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
 # File to persist data
 PERSISTENT_FILE = "nepse_data.csv"
@@ -74,7 +33,7 @@ def calculate_nepse_averages(df, column_name):
 
 # Main app function
 def main():
-    st.markdown("<div class='stHeader'><h1>📊 NEPSE Sector Analysis</h1></div>", unsafe_allow_html=True)
+    st.title("📊 NEPSE Sector Analysis")
 
     # Load data
     if os.path.exists(PERSISTENT_FILE):
@@ -161,8 +120,13 @@ def main():
             for sector_name, sector_data in sectors.items():
                 averages = calculate_nepse_averages(sector_data, sector_data.columns[1])
                 avg_data = averages[average_type.lower()]
-                key_column = 'Date' if average_type == "Daily" else f"{average_type.lower()}_Label"
-                avg_data.rename(columns={sector_data.columns[1]: sector_name, key_column: 'Merge_Key'}, inplace=True)
+                if average_type == "Daily":
+                    avg_data.rename(columns={'Date': 'Merge_Key'}, inplace=True)
+                elif average_type == "Weekly":
+                    avg_data.rename(columns={'Week_Label': 'Merge_Key'}, inplace=True)
+                elif average_type == "Monthly":
+                    avg_data.rename(columns={'Month_Label': 'Merge_Key'}, inplace=True)
+                avg_data.rename(columns={sector_data.columns[1]: sector_name}, inplace=True)
                 if comparison_data.empty:
                     comparison_data = avg_data[['Merge_Key', sector_name]]
                 else:
@@ -172,8 +136,13 @@ def main():
                 sector_data = sectors[sector]
                 averages = calculate_nepse_averages(sector_data, sector_data.columns[1])
                 avg_data = averages[average_type.lower()]
-                key_column = 'Date' if average_type == "Daily" else f"{average_type.lower()}_Label"
-                avg_data.rename(columns={sector_data.columns[1]: sector, key_column: 'Merge_Key'}, inplace=True)
+                if average_type == "Daily":
+                    avg_data.rename(columns={'Date': 'Merge_Key'}, inplace=True)
+                elif average_type == "Weekly":
+                    avg_data.rename(columns={'Week_Label': 'Merge_Key'}, inplace=True)
+                elif average_type == "Monthly":
+                    avg_data.rename(columns={'Month_Label': 'Merge_Key'}, inplace=True)
+                avg_data.rename(columns={sector_data.columns[1]: sector}, inplace=True)
                 if comparison_data.empty:
                     comparison_data = avg_data[['Merge_Key', sector]]
                 else:
