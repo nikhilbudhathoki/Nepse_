@@ -3,6 +3,57 @@ import pandas as pd
 import plotly.express as px
 import os
 
+# Set page configuration
+st.set_page_config(page_title="NEPSE Sector Analysis", layout="wide")
+
+# Custom CSS for styling and dynamic button background
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #1f1f1f; /* Dark background for a modern look */
+        color: #f5f5f5; /* Light text color for contrast */
+        font-family: 'Arial', sans-serif;
+    }
+    .stButton>button {
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 12px;
+        box-shadow: 0px 6px 8px #444;
+        transition: background-color 0.3s, transform 0.3s ease-in-out;
+        animation: colorChange 5s infinite;
+    }
+    .stButton>button:hover {
+        transform: translateY(-4px); /* Lift button slightly on hover */
+    }
+    @keyframes colorChange {
+        0% { background-color: #FF5733; }
+        25% { background-color: #33FF57; }
+        50% { background-color: #3357FF; }
+        75% { background-color: #FF33A1; }
+        100% { background-color: #FF5733; }
+    }
+    .stHeader {
+        background-color: #FF5733;
+        color: white;
+        padding: 10px;
+        text-align: center;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0px 6px 8px #444;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # File to persist data
 PERSISTENT_FILE = "nepse_data.csv"
 
@@ -30,8 +81,7 @@ def calculate_nepse_averages(df, column_name):
 
 # Main app function
 def main():
-    st.set_page_config(page_title="NEPSE Sector Analysis", layout="wide")
-    st.title("📊 NEPSE Sector Analysis")
+    st.markdown("<div class='stHeader'><h1>📊 NEPSE Sector Analysis</h1></div>", unsafe_allow_html=True)
 
     # Load data
     if os.path.exists(PERSISTENT_FILE):
