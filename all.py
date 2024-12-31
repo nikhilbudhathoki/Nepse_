@@ -1,16 +1,11 @@
-import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
-import sys
-
-# Ensure UTF-8 encoding
-sys.stdout.reconfigure(encoding='utf-8')
 
 # Set page configuration
 st.set_page_config(page_title="NEPSE Sector Analysis", layout="wide")
 
-# Custom CSS for styling and dynamic button background
+# Custom CSS for styling
 st.markdown(
     """
     <style>
@@ -20,6 +15,7 @@ st.markdown(
         font-family: 'Arial', sans-serif;
     }
     .stButton>button {
+        background-color: #FF5733; /* Vibrant red-orange background for buttons */
         color: white;
         border: none;
         padding: 12px 24px;
@@ -32,17 +28,10 @@ st.markdown(
         border-radius: 12px;
         box-shadow: 0px 6px 8px #444;
         transition: background-color 0.3s, transform 0.3s ease-in-out;
-        animation: colorChange 5s infinite;
     }
     .stButton>button:hover {
+        background-color: #FF451B; /* Darker red-orange on hover */
         transform: translateY(-4px); /* Lift button slightly on hover */
-    }
-    @keyframes colorChange {
-        0% { background-color: #FF5733; }
-        25% { background-color: #33FF57; }
-        50% { background-color: #3357FF; }
-        75% { background-color: #FF33A1; }
-        100% { background-color: #FF5733; }
     }
     .stHeader {
         background-color: #FF5733;
@@ -85,7 +74,7 @@ def calculate_nepse_averages(df, column_name):
 
 # Main app function
 def main():
-    st.markdown("<div class='stHeader'><h1>NEPSE Sector Analysis</h1></div>", unsafe_allow_html=True)
+    st.markdown("<div class='stHeader'><h1>📊 NEPSE Sector Analysis</h1></div>", unsafe_allow_html=True)
 
     # Load data
     if os.path.exists(PERSISTENT_FILE):
