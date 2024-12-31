@@ -8,25 +8,19 @@ PERSISTENT_FILE = "nepse_data.csv"
 
 # Function to calculate daily, weekly, monthly, and yearly averages
 def calculate_nepse_averages(df, column_name):
+    df = df.copy()
     df['Date'] = pd.to_datetime(df['Date'])
     df['Week'] = df['Date'].dt.isocalendar().week
     df['Year'] = df['Date'].dt.isocalendar().year
     df['Month'] = df['Date'].dt.month
 
-    # Daily averages
     daily_avg = df.groupby('Date')[column_name].mean().reset_index()
-
-    # Weekly averages
     weekly_avg = df.groupby(['Year', 'Week'])[column_name].mean().reset_index()
     weekly_avg['Week_Label'] = weekly_avg['Year'].astype(str) + '-W' + weekly_avg['Week'].astype(str)
-
-    # Monthly averages
     monthly_avg = df.groupby(['Year', 'Month'])[column_name].mean().reset_index()
     monthly_avg['Month_Label'] = (
         monthly_avg['Year'].astype(str) + '-M' + monthly_avg['Month'].astype(int).apply(lambda x: f'{x:02d}')
     )
-
-    # Yearly averages
     yearly_avg = df.groupby('Year')[column_name].mean().reset_index()
 
     return {
@@ -36,14 +30,12 @@ def calculate_nepse_averages(df, column_name):
         'yearly': yearly_avg
     }
 
-# Streamlit app
+# Main app function
 def main():
     st.set_page_config(page_title="NEPSE Sector Analysis", layout="wide")
     st.title("📊 NEPSE Sector Analysis")
 
-    # Check if the persistent file exists
     if os.path.exists(PERSISTENT_FILE):
-        st.write("### Loading saved data...")
         raw_data = pd.read_csv(PERSISTENT_FILE)
     else:
         uploaded_file = st.file_uploader("📁 Upload NEPSE CSV file", type=['csv'])
@@ -57,20 +49,13 @@ def main():
         st.session_state.raw_data = raw_data
 
     data = st.session_state.raw_data
-    st.write("### Editable Raw Data")
-    edited_data = st.data_editor(
-        data,
-        num_rows="dynamic",  # Allows adding new rows
-        key="data_editor"
-    )
+    edited_data = st.data_editor(data, num_rows="dynamic", key="data_editor")
 
-    # Save Changes button
     if st.button("💾 Save Changes", type="primary"):
         st.session_state.raw_data = edited_data
-        edited_data.to_csv(PERSISTENT_FILE, index=False)  # Save to file
+        edited_data.to_csv(PERSISTENT_FILE, index=False)
         st.success(f"Changes saved to {PERSISTENT_FILE}!")
 
-    # Define sectors
     sectors = {
         "Nepse": edited_data[['Date', 'Nepse']],
         "Commercial Banking": edited_data[['Date', 'C Banking']],
@@ -87,72 +72,51 @@ def main():
         "Hydropower": edited_data[['Date', 'Hydropower']]
     }
 
-    # Select sector
-    selected_sector = st.selectbox("🏢 Select Sector", list(sectors.keys()), index=0)
-    sector_data = sectors[selected_sector]
+    tabs = st.tabs(["📈 Sector Analysis", "📊 Comparison"])
 
-    # Calculate averages
-    averages = calculate_nepse_averages(sector_data, sector_data.columns[1])
+    # Sector Analysis Tab
+    with tabs[0]:
+        selected_sector = st.selectbox("🏢 Select Sector", list(sectors.keys()), index=0)
+        sector_data = sectors[selected_sector]
+        averages = calculate_nepse_averages(sector_data, sector_data.columns[1])
+        chart_type = st.selectbox("📊 Select Chart Type", ["Daily", "Weekly", "Monthly", "Yearly"], index=2)
 
-    # Selector for bar chart type
-    chart_type = st.selectbox(
-        "📊 Select Chart Type for Bar Graph",
-        options=["Daily", "Weekly", "Monthly", "Yearly"],
-        index=2  # Default to Monthly
-    )
+        if chart_type == "Daily":
+            line_data = averages['daily']
+            x_axis = 'Date'
+        elif chart_type == "Weekly":
+            line_data = averages['weekly']
+            x_axis = 'Week_Label'
+        elif chart_type == "Monthly":
+            line_data = averages['monthly']
+            x_axis = 'Month_Label'
+        else:
+            line_data = averages['yearly']
+            x_axis = 'Year'
 
-    if chart_type == "Daily":
-        bar_data = averages['daily']
-        x_axis = 'Date'
-        title = f'Daily Distribution for {selected_sector}'
-    elif chart_type == "Weekly":
-        bar_data = averages['weekly']
-        x_axis = 'Week_Label'
-        title = f'Weekly Distribution for {selected_sector}'
-    elif chart_type == "Monthly":
-        bar_data = averages['monthly']
-        x_axis = 'Month_Label'
-        title = f'Monthly Distribution for {selected_sector}'
-    else:
-        bar_data = averages['yearly']
-        x_axis = 'Year'
-        title = f'Yearly Distribution for {selected_sector}'
+        st.plotly_chart(px.line(line_data, x=x_axis, y=sector_data.columns[1], title=f"{chart_type} Line Chart"))
 
-    # Display Bar Chart
-    st.write(f"### 📊 {chart_type} Bar Chart for {selected_sector}")
-    bar_chart = px.bar(bar_data, x=x_axis, y=sector_data.columns[1],
-                       title=title,
-                       labels={x_axis: chart_type, sector_data.columns[1]: 'Percentage Change'})
-    st.plotly_chart(bar_chart)
+    # Comparison Tab
+    with tabs[1]:
+        st.write("## 📊 Sector Comparison")
+        average_type = st.selectbox("Select Average Type", ["Daily", "Weekly", "Monthly"], index=0)
+        selected_sectors = st.multiselect("Select Sectors for Comparison", options=list(sectors.keys()), default=["Nepse"])
 
-    # Display Line Charts
-    st.write(f"### 📅 Daily Averages for {selected_sector}")
-    st.write(averages['daily'])
-    daily_chart = px.line(averages['daily'], x='Date', y=sector_data.columns[1],
-                          title=f'Daily Averages for {selected_sector}',
-                          labels={'Date': 'Date', sector_data.columns[1]: 'Percentage Change'})
-    st.plotly_chart(daily_chart)
+        comparison_data = pd.DataFrame()
+        for sector in selected_sectors:
+            sector_data = sectors[sector]
+            averages = calculate_nepse_averages(sector_data, sector_data.columns[1])
+            avg_data = averages[average_type.lower()]
+            key_column = 'Date' if average_type == "Daily" else f"{average_type.lower()}_Label"
+            avg_data.rename(columns={sector_data.columns[1]: sector, key_column: 'Merge_Key'}, inplace=True)
+            if comparison_data.empty:
+                comparison_data = avg_data[['Merge_Key', sector]]
+            else:
+                comparison_data = comparison_data.merge(avg_data[['Merge_Key', sector]], on='Merge_Key', how='outer')
 
-    st.write(f"### 📅 Weekly Averages for {selected_sector}")
-    st.write(averages['weekly'])
-    weekly_chart = px.line(averages['weekly'], x='Week_Label', y=sector_data.columns[1],
-                           title=f'Weekly Averages for {selected_sector}',
-                           labels={'Week_Label': 'Week', sector_data.columns[1]: 'Percentage Change'})
-    st.plotly_chart(weekly_chart)
-
-    st.write(f"### 📅 Monthly Averages for {selected_sector}")
-    st.write(averages['monthly'])
-    monthly_chart = px.line(averages['monthly'], x='Month_Label', y=sector_data.columns[1],
-                             title=f'Monthly Averages for {selected_sector}',
-                             labels={'Month_Label': 'Month', sector_data.columns[1]: 'Percentage Change'})
-    st.plotly_chart(monthly_chart)
-
-    st.write(f"### 📅 Yearly Averages for {selected_sector}")
-    st.write(averages['yearly'])
-    yearly_chart = px.line(averages['yearly'], x='Year', y=sector_data.columns[1],
-                            title=f'Yearly Averages for {selected_sector}',
-                            labels={'Year': 'Year', sector_data.columns[1]: 'Percentage Change'})
-    st.plotly_chart(yearly_chart)
+        if not comparison_data.empty:
+            melted_data = comparison_data.melt(id_vars=['Merge_Key'], var_name="Sector", value_name="Average")
+            st.plotly_chart(px.line(melted_data, x="Merge_Key", y="Average", color="Sector", title="Sector Comparison"))
 
 if __name__ == "__main__":
     main()
