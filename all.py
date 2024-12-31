@@ -18,9 +18,7 @@ def calculate_nepse_averages(df, column_name):
     weekly_avg = df.groupby(['Year', 'Week'])[column_name].mean().reset_index()
     weekly_avg['Week_Label'] = weekly_avg['Year'].astype(str) + '-W' + weekly_avg['Week'].astype(str)
     monthly_avg = df.groupby(['Year', 'Month'])[column_name].mean().reset_index()
-    monthly_avg['Month_Label'] = (
-        monthly_avg['Year'].astype(str) + '-M' + monthly_avg['Month'].astype(int).apply(lambda x: f'{x:02d}')
-    )
+    monthly_avg['Month_Label'] = monthly_avg['Year'].astype(str) + '-M' + monthly_avg['Month'].astype(int).apply(lambda x: f'{x:02d}')
     yearly_avg = df.groupby('Year')[column_name].mean().reset_index()
 
     return {
@@ -35,6 +33,7 @@ def main():
     st.set_page_config(page_title="NEPSE Sector Analysis", layout="wide")
     st.title("📊 NEPSE Sector Analysis")
 
+    # Load data
     if os.path.exists(PERSISTENT_FILE):
         raw_data = pd.read_csv(PERSISTENT_FILE)
     else:
@@ -56,6 +55,7 @@ def main():
         edited_data.to_csv(PERSISTENT_FILE, index=False)
         st.success(f"Changes saved to {PERSISTENT_FILE}!")
 
+    # Define sectors
     sectors = {
         "Nepse": edited_data[['Date', 'Nepse']],
         "Commercial Banking": edited_data[['Date', 'C Banking']],
@@ -94,29 +94,58 @@ def main():
             line_data = averages['yearly']
             x_axis = 'Year'
 
-        st.plotly_chart(px.line(line_data, x=x_axis, y=sector_data.columns[1], title=f"{chart_type} Line Chart"))
+        fig = px.line(line_data, x=x_axis, y=sector_data.columns[1], title=f"{chart_type} Line Chart")
+        fig.update_layout(
+            xaxis=dict(rangeslider=dict(visible=True)),  # Enable range slider for zoom
+            yaxis=dict(title=sector_data.columns[1]),
+            title=dict(x=0.5),  # Center-align title
+            dragmode="zoom",  # Enable drag zoom functionality
+            xaxis_title="Date",
+            yaxis_title="Price"
+        )
+        st.plotly_chart(fig)
 
     # Comparison Tab
     with tabs[1]:
         st.write("## 📊 Sector Comparison")
         average_type = st.selectbox("Select Average Type", ["Daily", "Weekly", "Monthly"], index=0)
-        selected_sectors = st.multiselect("Select Sectors for Comparison", options=list(sectors.keys()), default=["Nepse"])
+        sector_options = list(sectors.keys()) + ["All Sectors"]
+        selected_sectors = st.multiselect("Select Sectors for Comparison", options=sector_options, default=["Nepse"])
 
         comparison_data = pd.DataFrame()
-        for sector in selected_sectors:
-            sector_data = sectors[sector]
-            averages = calculate_nepse_averages(sector_data, sector_data.columns[1])
-            avg_data = averages[average_type.lower()]
-            key_column = 'Date' if average_type == "Daily" else f"{average_type.lower()}_Label"
-            avg_data.rename(columns={sector_data.columns[1]: sector, key_column: 'Merge_Key'}, inplace=True)
-            if comparison_data.empty:
-                comparison_data = avg_data[['Merge_Key', sector]]
-            else:
-                comparison_data = comparison_data.merge(avg_data[['Merge_Key', sector]], on='Merge_Key', how='outer')
+
+        if "All Sectors" in selected_sectors:
+            for sector_name, sector_data in sectors.items():
+                averages = calculate_nepse_averages(sector_data, sector_data.columns[1])
+                avg_data = averages[average_type.lower()]
+                key_column = 'Date' if average_type == "Daily" else f"{average_type.lower()}_Label"
+                avg_data.rename(columns={sector_data.columns[1]: sector_name, key_column: 'Merge_Key'}, inplace=True)
+                if comparison_data.empty:
+                    comparison_data = avg_data[['Merge_Key', sector_name]]
+                else:
+                    comparison_data = comparison_data.merge(avg_data[['Merge_Key', sector_name]], on='Merge_Key', how='outer')
+        else:
+            for sector in selected_sectors:
+                sector_data = sectors[sector]
+                averages = calculate_nepse_averages(sector_data, sector_data.columns[1])
+                avg_data = averages[average_type.lower()]
+                key_column = 'Date' if average_type == "Daily" else f"{average_type.lower()}_Label"
+                avg_data.rename(columns={sector_data.columns[1]: sector, key_column: 'Merge_Key'}, inplace=True)
+                if comparison_data.empty:
+                    comparison_data = avg_data[['Merge_Key', sector]]
+                else:
+                    comparison_data = comparison_data.merge(avg_data[['Merge_Key', sector]], on='Merge_Key', how='outer')
 
         if not comparison_data.empty:
             melted_data = comparison_data.melt(id_vars=['Merge_Key'], var_name="Sector", value_name="Average")
-            st.plotly_chart(px.line(melted_data, x="Merge_Key", y="Average", color="Sector", title="Sector Comparison"))
+            fig = px.line(melted_data, x="Merge_Key", y="Average", color="Sector", title="Sector Comparison")
+            fig.update_layout(
+                xaxis=dict(rangeslider=dict(visible=True)),  # Enable range slider for zoom
+                yaxis=dict(title="Average"),
+                title=dict(x=0.5),  # Center-align title
+                dragmode="zoom"  # Enable drag zoom functionality
+            )
+            st.plotly_chart(fig)
 
 if __name__ == "__main__":
     main()
